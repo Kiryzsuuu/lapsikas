@@ -1,0 +1,2 @@
+id,subject,category,priority,description,user,user_name,status,created_at,updated_at
+1,Test Ticket,Technical,Medium,Ini adalah tiket test untuk sistem support,admin,Administrator,Open,2024-01-15T10:00:00Z,2024-01-15T10:00:00Z

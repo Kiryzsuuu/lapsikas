@@ -1,0 +1,19 @@
+{
+  "name": "satker-reminder-frontend",
+  "version": "0.1.0",
+  "description": "Frontend untuk Satker Reminder - Next.js React App",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start"
+  },
+  "dependencies": {
+    "next": "^14.2.32",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "validator": "^13.9.0",
+    "jspdf": "^2.5.1",
+    "jspdf-autotable": "^3.5.31",
+    "react-pdf": "^7.6.0"
+  }
+}

@@ -1,0 +1,7 @@
+body{ font-family: Arial, Helvetica, sans-serif; background:#f4f4f4; }
+.container{ max-width:1000px; margin:16px auto; background:white; padding:16px; box-shadow:0 1px 6px rgba(0,0,0,0.1) }
+.controls{ margin-bottom:12px }
+.row{ display:flex; gap:8px; padding:8px; border-bottom:1px solid #eee }
+.row input{ flex:1 }
+.row select{ width:160px }
+#log{ margin-top:12px; white-space:pre-wrap; background:#111; color:#0f0; padding:8px; height:120px; overflow:auto }

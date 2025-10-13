@@ -1,0 +1,7 @@
+id,satker_name,user_email,report_type,amount,description,file_path,file_name,status,submitted_at,reviewed_by
+1,Satker A,user@example.com,Sisa Kas,50000000,Laporan sisa kas bulan Januari,,,approved,2024-01-15T10:00:00Z,admin
+2,Satker B,user2@example.com,Realisasi,75000000,Laporan realisasi anggaran Q1,,,rejected,2024-01-14T09:30:00Z,admin
+1760267850009,Hehe,user@kemhan.go.id,Sisa Kas,170000000,hehe,/uploads/1760267849949-60975569.pdf,Quiz 1_ Attempt review _ CeLOE LMS.pdf,rejected,2025-10-12T11:17:30.009Z,admin
+1760268014587,PUSKU,user@kemhan.go.id,Sisa Kas,60000000,SIsa Kas Bulan Oktober,/api/files/1760268014576-401264040.pdf,Quiz 1_ Attempt review _ CeLOE LMS.pdf,approved,2025-10-12T11:20:14.587Z,admin
+1760269528702,PUSKUUHUY,user@kemhan.go.id,Sisa Kas,780000000,Laporan Kas Januari,/api/files/1760269528686-973148052.pdf,Quiz 1_ Attempt review _ CeLOE LMS.pdf,approved,2025-10-12T11:45:28.702Z,admin
+1760269764553,PUSMEOW,user@kemhan.go.id,Sisa Kas,90000000,Sisa Kas Februari,/api/files/1760269764543-998764522.pdf,laporan-satker.pdf,approved,2025-10-12T11:49:24.553Z,admin
