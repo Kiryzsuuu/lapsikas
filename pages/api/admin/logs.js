@@ -1,40 +1,48 @@
-const fs = require('fs');
-const path = require('path');
+import connectDB from '../../../lib/mongodb';
+import Log from '../../../models/Log';
+import { verifyToken } from '../../../lib/serverAuth';
 
-const LOGS_FILE = path.join(process.cwd(), 'data', 'send.log');
+export default async function handler(req, res) {
+  const v = verifyToken(req);
+  if (!v.ok || v.user.role !== 'super_admin') {
+    return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
 
-export default function handler(req, res) {
+  await connectDB();
+
   if (req.method === 'GET') {
     try {
-      if (!fs.existsSync(LOGS_FILE)) {
-        return res.json({ ok: true, logs: [] });
-      }
+      const logs = await Log.find()
+        .sort({ timestamp: -1 })
+        .limit(500)
+        .lean();
       
-      const logContent = fs.readFileSync(LOGS_FILE, 'utf8');
-      const logs = logContent.split('\n')
-        .filter(line => line.trim())
-        .map(line => {
-          const parts = line.split(' ');
-          return {
-            timestamp: parts[0],
-            type: parts[1] || 'INFO',
-            user: 'System',
-            action: 'Email',
-            details: line
-          };
-        })
-        .reverse();
+      const formattedLogs = logs.map(log => ({
+        id: log._id.toString(),
+        timestamp: log.timestamp,
+        type: log.type,
+        user: log.user,
+        action: log.action,
+        details: log.details || `${log.action} - ${log.user}`
+      }));
       
-      res.json({ ok: true, logs });
+      res.json({ ok: true, logs: formattedLogs });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
     }
   } else if (req.method === 'DELETE') {
     try {
-      if (fs.existsSync(LOGS_FILE)) {
-        fs.writeFileSync(LOGS_FILE, '');
+      const { logId } = req.body;
+      
+      if (logId) {
+        // Delete single log
+        await Log.findByIdAndDelete(logId);
+        res.json({ ok: true, message: 'Log berhasil dihapus' });
+      } else {
+        // Delete all logs
+        await Log.deleteMany({});
+        res.json({ ok: true, message: 'Semua log berhasil dihapus' });
       }
-      res.json({ ok: true });
     } catch (error) {
       res.status(500).json({ ok: false, error: error.message });
     }

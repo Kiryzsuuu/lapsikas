@@ -92,13 +92,13 @@ export default function Support() {
           </div>
           <div className="header-right">
             <button className="btn btn-primary" onClick={() => router.push('/')}>
-              🏠 Dashboard
+              Dashboard
             </button>
             <button className="btn btn-danger" onClick={() => {
               localStorage.removeItem('user')
               router.push('/login')
             }}>
-              🚪 Logout
+              Logout
             </button>
           </div>
         </div>
@@ -106,16 +106,16 @@ export default function Support() {
 
       <div className="stats-grid">
         <div className="stat-card">
-          <div className="stat-number">📞</div>
-          <div className="stat-label">Hotline: (021) 123-4567</div>
+          <div className="stat-number">Hotline</div>
+          <div className="stat-label">(021) 123-4567</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">📧</div>
+          <div className="stat-number">Email</div>
           <div className="stat-label">support@kemhan.go.id</div>
         </div>
         <div className="stat-card">
-          <div className="stat-number">🕐</div>
-          <div className="stat-label">24/7 Support</div>
+          <div className="stat-number">Support</div>
+          <div className="stat-label">24/7</div>
         </div>
         <div className="stat-card">
           <div className="stat-number">{tickets.length}</div>
@@ -124,7 +124,7 @@ export default function Support() {
       </div>
 
       <div className="card">
-        <h2>🎫 Buat Tiket Support</h2>
+        <h2>Buat Tiket Support</h2>
         <div className="config-grid">
           <div className="form-group">
             <label>Subjek</label>
@@ -261,25 +261,25 @@ export default function Support() {
       </div>
 
       <div className="card">
-        <h2>📞 Kontak Support</h2>
+        <h2>Kontak Support</h2>
         <div className="config-grid">
           <div style={{ textAlign: 'center' }}>
-            <h3>📱 Hotline</h3>
+            <h3>Hotline</h3>
             <p>(021) 123-4567</p>
             <p>24/7 Available</p>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <h3>📧 Email</h3>
+            <h3>Email</h3>
             <p>support@kemhan.go.id</p>
             <p>Response: 1-2 hari kerja</p>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <h3>🏢 Kantor</h3>
+            <h3>Kantor</h3>
             <p>Kemhan RI</p>
             <p>Jl. Medan Merdeka Barat</p>
           </div>
           <div style={{ textAlign: 'center' }}>
-            <h3>⏰ Jam Kerja</h3>
+            <h3>Jam Kerja</h3>
             <p>Senin - Jumat</p>
             <p>08:00 - 16:00 WIB</p>
           </div>

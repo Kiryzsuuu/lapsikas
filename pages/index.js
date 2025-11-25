@@ -53,20 +53,47 @@ export default function Home() {
   });
   const [pdfUrl, setPdfUrl] = useState(null);
   const [showPdfViewer, setShowPdfViewer] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [currentRejectId, setCurrentRejectId] = useState(null);
+  const [rejectReason, setRejectReason] = useState('');
   const router = useRouter();
 
   useEffect(() => {
-    const userData = localStorage.getItem('user');
-    if (!userData) {
-      router.push('/login');
-      return;
-    }
-    const parsedUser = JSON.parse(userData);
-    setUser(parsedUser);
-    setAuthenticated(true);
-    load(); 
-    loadCfg();
-    loadReports();
+    (async () => {
+      const userData = localStorage.getItem('user');
+      if (!userData) {
+        router.push('/login');
+        return;
+      }
+      let parsedUser;
+      try {
+        parsedUser = JSON.parse(userData);
+      } catch (err) {
+        localStorage.removeItem('user');
+        router.push('/login');
+        return;
+      }
+
+      // Verify with server that the user still exists / is valid
+      try {
+  const v = await fetch(`${API}/auth/verify`);
+        const j = await v.json();
+        if (!j.ok) {
+          localStorage.removeItem('user');
+          router.push('/login');
+          return;
+        }
+        setUser(j.user);
+        setAuthenticated(true);
+        await load();
+        await loadCfg();
+        await loadReports();
+      } catch (err) {
+        // On network/server error, clear session and force login
+        localStorage.removeItem('user');
+        router.push('/login');
+      }
+    })();
   }, []);
 
   const showToast = (message, type = 'success') => {
@@ -248,8 +275,10 @@ export default function Home() {
   };
 
   const logout = () => {
-    localStorage.removeItem('user');
-    router.push('/login');
+    fetch(`${API}/auth/logout`, { method: 'POST' }).finally(() => {
+      try { localStorage.removeItem('user'); } catch (err) {}
+      router.push('/login');
+    });
   };
 
   const canConfig = user && (user.role === 'super_admin' || user.role === 'admin');
@@ -323,24 +352,117 @@ export default function Home() {
     setLoading(false);
   }
 
-  async function updateReportStatus(id, status) {
+  async function submitRejection() {
+    if (!rejectReason || rejectReason.trim() === '') {
+      // Validation handled by required attribute in input
+      return;
+    }
+    
     setLoading(true);
+    setShowRejectModal(false);
+    
     try {
+      const body = { 
+        id: currentRejectId, 
+        status: 'rejected', 
+        reviewed_by: user.username,
+        rejection_reason: rejectReason.trim()
+      };
+      
       const r = await fetch(`${API}/reports`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, status, reviewed_by: user.username })
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cookie': document.cookie
+        },
+        credentials: 'include',
+        body: JSON.stringify(body)
       });
       
       const j = await r.json();
       if (j.ok) {
-        showToast('Status laporan diupdate');
+        loadReports();
+        setToast({ show: true, message: 'Laporan berhasil ditolak', type: 'success' });
+      } else {
+        console.error('Gagal menolak laporan:', j.error);
+        setToast({ show: true, message: j.error || 'Gagal menolak laporan', type: 'error' });
+      }
+    } catch (err) {
+      console.error('Error:', err.message);
+    }
+    setLoading(false);
+    setCurrentRejectId(null);
+    setRejectReason('');
+  }
+
+  function cancelRejection() {
+    setShowRejectModal(false);
+    setCurrentRejectId(null);
+    setRejectReason('');
+  }
+
+  async function updateReportStatus(id, status) {
+    // If rejecting, show modal for reason
+    if (status === 'rejected') {
+      setCurrentRejectId(id);
+      setRejectReason('');
+      setShowRejectModal(true);
+      return;
+    }
+    
+    setLoading(true);
+    try {
+      const body = { id, status, reviewed_by: user.username };
+      
+      const r = await fetch(`${API}/reports`, {
+        method: 'PUT',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cookie': document.cookie
+        },
+        credentials: 'include',
+        body: JSON.stringify(body)
+      });
+      
+      const j = await r.json();
+      if (j.ok) {
+        setToast({ show: true, message: 'Status laporan diupdate', type: 'success' });
         loadReports();
       } else {
-        showToast('Gagal update status', 'error');
+        setToast({ show: true, message: j.error || 'Gagal update status', type: 'error' });
       }
     } catch (err) {
       showToast('Error: ' + err.message, 'error');
+    }
+    setLoading(false);
+  }
+
+  async function deleteReport(id) {
+    if (!confirm('Hapus laporan ini?')) return;
+    
+    setLoading(true);
+    try {
+      const r = await fetch(`${API}/reports`, {
+        method: 'DELETE',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Cookie': document.cookie
+        },
+        credentials: 'include',
+        body: JSON.stringify({ id })
+      });
+      
+      const j = await r.json();
+      if (j.ok) {
+        loadReports();
+        setToast({ show: true, message: 'Laporan berhasil dihapus', type: 'success' });
+      } else {
+        console.error('Gagal menghapus laporan:', j.error || j.message);
+        setToast({ show: true, message: j.error || j.message || 'Gagal menghapus laporan', type: 'error' });
+      }
+    } catch (err) {
+      console.error('Error:', err.message);
+      setToast({ show: true, message: 'Error: ' + err.message, type: 'error' });
     }
     setLoading(false);
   }
@@ -354,11 +476,12 @@ export default function Home() {
       r.report_type,
       `Rp ${parseInt(r.amount || 0).toLocaleString('id-ID')}`,
       r.status,
-      new Date(r.submitted_at).toLocaleDateString('id-ID')
+      new Date(r.submitted_at).toLocaleDateString('id-ID'),
+      new Date(r.submitted_at).toLocaleTimeString('id-ID')
     ]);
     
     doc.autoTable({
-      head: [['Satker', 'Jenis', 'Jumlah', 'Status', 'Tanggal']],
+      head: [['Satker', 'Jenis', 'Jumlah', 'Status', 'Tanggal', 'Jam']],
       body: tableData,
       startY: 30
     });
@@ -382,11 +505,12 @@ export default function Home() {
       r.report_type,
       `Rp ${parseInt(r.amount || 0).toLocaleString('id-ID')}`,
       r.status,
-      new Date(r.submitted_at).toLocaleDateString('id-ID')
+      new Date(r.submitted_at).toLocaleDateString('id-ID'),
+      new Date(r.submitted_at).toLocaleTimeString('id-ID')
     ]);
     
     doc.autoTable({
-      head: [['Satker', 'Jenis', 'Jumlah', 'Status', 'Tanggal']],
+      head: [['Satker', 'Jenis', 'Jumlah', 'Status', 'Tanggal', 'Jam']],
       body: tableData,
       startY: 30
     });
@@ -438,14 +562,14 @@ export default function Home() {
             )}
             {user && user.role === 'super_admin' && (
               <button className="btn btn-warning" onClick={() => router.push('/admin')}>
-                ⚙️ Admin Panel
+                Admin Panel
               </button>
             )}
             <button className="btn btn-success" onClick={() => router.push('/support')}>
-              🎫 Support
+              Support
             </button>
             <button className="btn btn-danger" onClick={logout}>
-              🚪 Logout
+              Logout
             </button>
           </div>
         </div>
@@ -483,7 +607,7 @@ export default function Home() {
         <h2>📝 Kirim Laporan</h2>
         <div className="toolbar">
           <button className="btn btn-success" onClick={() => setShowReportForm(!showReportForm)}>
-            {showReportForm ? '❌ Batal' : '➕ Buat Laporan'}
+            {showReportForm ? 'Batal' : 'Buat Laporan'}
           </button>
         </div>
         
@@ -546,7 +670,7 @@ export default function Home() {
               </div>
             </div>
             <button className="btn btn-primary" onClick={submitReport} disabled={loading}>
-              {loading ? <div className="loading"></div> : '📤'} Kirim Laporan
+              {loading ? <div className="loading"></div> : ''} Kirim Laporan
             </button>
           </div>
         )}
@@ -554,17 +678,17 @@ export default function Home() {
       )}
 
       <div className="card">
-        <h2>📊 Monitor Laporan</h2>
+        <h2>Monitor Laporan</h2>
         {!isUser && (
         <div className="toolbar">
           <button className="btn btn-success" onClick={exportToExcel}>
-            📊 Export Excel
+            Export Excel
           </button>
           <button className="btn btn-primary" onClick={exportToPDF}>
             📄 Preview PDF
           </button>
           <button className="btn btn-warning" onClick={downloadPDF}>
-            💾 Download PDF
+            Download PDF
           </button>
         </div>
         )}
@@ -573,7 +697,7 @@ export default function Home() {
           <div style={{ marginBottom: '20px', padding: '20px', background: '#f8f9fa', borderRadius: '8px' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
               <h3>Preview PDF</h3>
-              <button className="btn btn-danger" onClick={() => setShowPdfViewer(false)}>❌ Tutup</button>
+              <button className="btn btn-danger" onClick={() => setShowPdfViewer(false)}>Tutup</button>
             </div>
             <div style={{ border: '1px solid #ddd', height: '500px', overflow: 'auto' }}>
               <Document file={pdfUrl}>
@@ -593,6 +717,7 @@ export default function Home() {
                 <th>File</th>
                 <th>Status</th>
                 <th>Tanggal</th>
+                <th>Jam</th>
                 {!isUser && <th>Aksi</th>}
               </tr>
             </thead>
@@ -619,18 +744,24 @@ export default function Home() {
                     }`}>
                       {r.status}
                     </span>
+                    {r.status === 'rejected' && r.rejection_reason && (
+                      <div style={{ marginTop: '5px', fontSize: '11px', color: '#dc3545', fontStyle: 'italic' }}>
+                        Alasan: {r.rejection_reason}
+                      </div>
+                    )}
                   </td>
                   <td>{new Date(r.submitted_at).toLocaleDateString('id-ID')}</td>
+                  <td>{new Date(r.submitted_at).toLocaleTimeString('id-ID')}</td>
                   {!isUser && (
                     <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                         <button
                           className="btn btn-success"
                           onClick={() => updateReportStatus(r.id, 'approved')}
                           disabled={loading}
                           style={{ padding: '6px 10px', fontSize: '12px' }}
                         >
-                          ✅
+                          Approve
                         </button>
                         <button
                           className="btn btn-danger"
@@ -638,7 +769,22 @@ export default function Home() {
                           disabled={loading}
                           style={{ padding: '6px 10px', fontSize: '12px' }}
                         >
-                          ❌
+                          Reject
+                        </button>
+                        <button
+                          className="btn btn-danger"
+                          onClick={() => deleteReport(r.id)}
+                          disabled={loading}
+                          style={{ 
+                            padding: '6px 10px', 
+                            fontSize: '12px', 
+                            backgroundColor: '#dc3545',
+                            border: '1px solid #dc3545',
+                            color: 'white',
+                            fontWeight: '500'
+                          }}
+                        >
+                          Hapus
                         </button>
                       </div>
                     </td>
@@ -652,32 +798,32 @@ export default function Home() {
 
       {!isUser && (
       <div className="card">
-        <h2>📋 Data Satuan Kerja</h2>
+        <h2>Data Satuan Kerja</h2>
         
         <div className="toolbar">
           <button className="btn btn-primary" onClick={load} disabled={loading}>
-            {loading ? <div className="loading"></div> : '🔄'} Muat Ulang
+            {loading ? <div className="loading"></div> : ''} Muat Ulang
           </button>
           <button className="btn btn-success" onClick={add}>
-            ➕ Tambah Data
+            Tambah Data
           </button>
           <div className="file-input">
             <input type="file" id="csvFile" onChange={handleImport} accept=".csv" />
             <label htmlFor="csvFile" className="file-input-label">
-              📁 Import CSV
+              Import CSV
             </label>
           </div>
           <button className="btn btn-primary" onClick={save} disabled={loading}>
-            {loading ? <div className="loading"></div> : '💾'} Simpan
+            {loading ? <div className="loading"></div> : ''} Simpan
           </button>
           <button className="btn btn-warning" onClick={runScheduler} disabled={loading}>
-            {loading ? <div className="loading"></div> : '⚡'} Test Scheduler
+            {loading ? <div className="loading"></div> : ''} Test Scheduler
           </button>
         </div>
 
         {errors.length > 0 && (
           <div className="error-panel">
-            <h3>⚠️ Error Validasi:</h3>
+            <h3>Error Validasi:</h3>
             <ul className="error-list">
               {errors.map((e, idx) => (
                 <li key={idx}>Baris {e.idx + 1} - {e.field}: {e.msg}</li>
@@ -749,14 +895,14 @@ export default function Home() {
                         disabled={loading}
                         style={{ padding: '8px 12px', fontSize: '12px' }}
                       >
-                        📧 Kirim
+                        Kirim
                       </button>
                       <button
                         className="btn btn-danger"
                         onClick={() => remove(i)}
                         style={{ padding: '8px 12px', fontSize: '12px' }}
                       >
-                        🗑️
+                        Hapus
                       </button>
                     </div>
                   </td>
@@ -831,10 +977,53 @@ export default function Home() {
           </div>
         </div>
         <button className="btn btn-primary" onClick={saveCfg} disabled={loading}>
-          {loading ? <div className="loading"></div> : '💾'} Simpan Konfigurasi
+          {loading ? <div className="loading"></div> : ''} Simpan Konfigurasi
         </button>
       </div>
       )}
+
+      {/* Modal untuk input alasan penolakan */}
+      {showRejectModal && (
+        <div className="modal-overlay">
+          <div className="modal-bubble">
+            <div className="modal-header">
+              <h3>Tolak Laporan</h3>
+            </div>
+            <div className="modal-body">
+              <div className="form-group">
+                <label>Alasan Penolakan:</label>
+                <textarea
+                  className="textarea"
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder="Masukkan alasan penolakan laporan..."
+                  rows="4"
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button 
+                className="btn btn-secondary" 
+                onClick={cancelRejection}
+                disabled={loading}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn btn-danger" 
+                onClick={submitRejection}
+                disabled={loading || !rejectReason.trim()}
+              >
+                {loading ? <div className="loading"></div> : ''} 
+                Send Reject
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   )
 }

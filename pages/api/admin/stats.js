@@ -1,44 +1,31 @@
-const fs = require('fs');
-const path = require('path');
-const { readCsv } = require('../../../lib');
+import connectDB from '../../../lib/mongodb';
+import User from '../../../models/User';
+import Report from '../../../models/Report';
+import Log from '../../../models/Log';
+import { verifyToken } from '../../../lib/serverAuth';
 
-const USERS_FILE = path.join(process.cwd(), 'data', 'users.json');
-const REPORTS_FILE = path.join(process.cwd(), 'data', 'reports.csv');
-const LOGS_FILE = path.join(process.cwd(), 'data', 'send.log');
+export default async function handler(req, res) {
+  const v = verifyToken(req);
+  if (!v.ok || v.user.role !== 'super_admin') {
+    return res.status(401).json({ ok: false, error: 'unauthorized' });
+  }
 
-export default function handler(req, res) {
+  await connectDB();
+
   if (req.method === 'GET') {
     try {
-      let totalUsers = 0;
-      let totalReports = 0;
-      let totalEmails = 0;
-      let totalLogins = 0;
-
-      // Count users
-      if (fs.existsSync(USERS_FILE)) {
-        const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf8'));
-        totalUsers = users.length;
-      }
-
-      // Count reports
-      if (fs.existsSync(REPORTS_FILE)) {
-        const reports = readCsv();
-        totalReports = reports.length;
-      }
-
-      // Count emails from logs
-      if (fs.existsSync(LOGS_FILE)) {
-        const logContent = fs.readFileSync(LOGS_FILE, 'utf8');
-        const lines = logContent.split('\n').filter(line => line.trim());
-        totalEmails = lines.filter(line => line.includes('SENT')).length;
-        totalLogins = lines.filter(line => line.includes('LOGIN')).length;
-      }
+      const [totalUsers, totalReports, emailLogs, loginLogs] = await Promise.all([
+        User.countDocuments(),
+        Report.countDocuments(),
+        Log.countDocuments({ action: 'Email' }),
+        Log.countDocuments({ action: 'Login' })
+      ]);
 
       const stats = {
         totalUsers,
         totalReports,
-        totalEmails,
-        totalLogins
+        totalEmails: emailLogs,
+        totalLogins: loginLogs
       };
 
       res.json({ ok: true, stats });
