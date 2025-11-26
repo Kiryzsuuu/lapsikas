@@ -25,7 +25,16 @@ async function sendMail(smtpConfig, to, subject, text){
   return info;
 }
 
-function log(line){ ensure(); const ts = (new Date()).toISOString(); fs.appendFileSync(LOG_PATH, `${ts} ${line}\n`); }
+function log(line){ 
+  try {
+    ensure(); 
+    const ts = (new Date()).toISOString(); 
+    fs.appendFileSync(LOG_PATH, `${ts} ${line}\n`);
+  } catch (err) {
+    // Fallback to console.log on serverless (read-only filesystem)
+    console.log('[LOG]', line);
+  }
+}
 
 const api = { readCsv, writeCsv, sendMail, log, CSV_PATH, DATA_DIR };
 module.exports = api;
