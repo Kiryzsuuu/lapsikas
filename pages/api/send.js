@@ -48,6 +48,14 @@ export default async function handler(req, res) {
       });
     }
 
+    // Validate SMTP credentials
+    if (!smtp.auth || !smtp.auth.user || !smtp.auth.pass) {
+      return res.status(400).json({
+        ok: false,
+        error: 'Kredensial SMTP tidak lengkap. Pastikan email dan password SMTP sudah diisi.'
+      });
+    }
+
     await sendMail(smtp, to, subject, text);
     res.status(200).json({ ok: true });
   } catch (error) {

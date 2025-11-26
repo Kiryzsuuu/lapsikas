@@ -235,14 +235,8 @@ export default function Home() {
     
     setLoading(true);
     try {
-      const smtp = cfg.smtp || {
-        host: 'smtp.gmail.com',
-        port: 587,
-        secure: false,
-        auth: { user: '', pass: '' }
-      };
+      // Don't send SMTP config from frontend, let backend handle it
       const body = {
-        smtp,
         to: s.email,
         subject: `Pengingat sisa kas ${s.nama || ''}`,
         text: `Yth. ${s.nama || ''},\n\nMohon dikirimkan sisa kas. Deadline: ${s.deadline || '--'}`
