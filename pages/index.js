@@ -195,14 +195,20 @@ export default function Home() {
   async function saveCfg() {
     setLoading(true);
     try {
-      await fetch(`${API}/config`, {
+      const r = await fetch(`${API}/config`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(cfg)
       });
-      showToast('Konfigurasi berhasil disimpan');
+      const j = await r.json();
+      
+      if (j.ok) {
+        showToast('Konfigurasi berhasil disimpan di ' + (j.source === 'mongodb' ? 'database' : 'server'));
+      } else {
+        showToast(j.error || 'Gagal menyimpan konfigurasi', 'error');
+      }
     } catch (err) {
-      showToast('Gagal menyimpan konfigurasi', 'error');
+      showToast('Gagal menyimpan konfigurasi: ' + err.message, 'error');
     }
     setLoading(false);
   }
@@ -211,7 +217,13 @@ export default function Home() {
     try {
       const r = await fetch(`${API}/config`);
       const j = await r.json();
-      if (j.ok) setCfg(j.cfg || {});
+      if (j.ok) {
+        setCfg(j.cfg || {});
+        // Optionally show where config was loaded from
+        if (j.source && j.source !== 'none') {
+          console.log('Config loaded from:', j.source);
+        }
+      }
     } catch (err) {
       showToast('Gagal memuat konfigurasi', 'error');
     }
